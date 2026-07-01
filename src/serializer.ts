@@ -8,7 +8,7 @@ import type {
   SubstackInput
 } from '@scratch-fuse/compiler'
 import type { Parameter } from '@scratch-fuse/core'
-import { Sb3Workspace, Sb3Block, Sb3Input, Sb3Field } from './base'
+import { Sb3Workspace, Sb3Block, Sb3Input, Sb3Field, Sb3CommentMap } from './base'
 import uid from './uid'
 
 /**
@@ -17,6 +17,7 @@ import uid from './uid'
 interface SerializationContext {
   workspace: Sb3Workspace
   reporterCache: Map<string, string> // Reporter 内容哈希 -> 积木 ID
+  commentMap: Map<string, string> // blockId -> comment text
 }
 
 /**
@@ -25,7 +26,8 @@ interface SerializationContext {
 function createContext(): SerializationContext {
   return {
     workspace: {},
-    reporterCache: new Map()
+    reporterCache: new Map(),
+    commentMap: new Map()
   }
 }
 
@@ -175,12 +177,17 @@ function serializeBlock(
     sb3Block.mutation = block.mutation
   }
 
+  // 记录积木注释
+  if (block.comment && blockId) {
+    context.commentMap.set(blockId, block.comment)
+  }
+
   return sb3Block
 }
 
-export function serializeBlocks(blocks: Block[]): Sb3Workspace {
+export function serializeBlocks(blocks: Block[]): { blocks: Sb3Workspace; comments: Sb3CommentMap } {
   if (blocks.length === 0) {
-    return {}
+    return { blocks: {}, comments: {} }
   }
 
   const context = createContext()
@@ -204,10 +211,23 @@ export function serializeBlocks(blocks: Block[]): Sb3Workspace {
     context.workspace[currentId].parent = parentId
   }
 
-  return context.workspace
+  // 构建注释映射
+  const comments: Sb3CommentMap = {}
+  let commentIndex = 0
+  for (const [blockId, text] of context.commentMap) {
+    comments[`comment_${commentIndex}`] = {
+      blockId,
+      x: 0,
+      y: commentIndex * 40,
+      text
+    }
+    commentIndex++
+  }
+
+  return { blocks: context.workspace, comments }
 }
 
-export function serializeScript(script: Script): Sb3Workspace {
+export function serializeScript(script: Script): { blocks: Sb3Workspace; comments: Sb3CommentMap } {
   const context = createContext()
   let topLevelId: string | null = null
 
@@ -244,6 +264,11 @@ export function serializeScript(script: Script): Sb3Workspace {
 
     context.workspace[hatId] = hatBlock
     topLevelId = hatId
+
+    // 记录帽子积木注释
+    if (script.hat.comment) {
+      context.commentMap.set(hatId, script.hat.comment)
+    }
   }
 
   // 处理积木序列
@@ -285,10 +310,23 @@ export function serializeScript(script: Script): Sb3Workspace {
     context.workspace[topLevelId].topLevel = true
   }
 
-  return context.workspace
+  // 构建注释映射
+  const comments: Sb3CommentMap = {}
+  let commentIndex = 0
+  for (const [blockId, text] of context.commentMap) {
+    comments[`comment_${commentIndex}`] = {
+      blockId,
+      x: 0,
+      y: commentIndex * 40,
+      text
+    }
+    commentIndex++
+  }
+
+  return { blocks: context.workspace, comments }
 }
 
-export function serializeFunction(func: CompiledFunction): Sb3Workspace {
+export function serializeFunction(func: CompiledFunction): { blocks: Sb3Workspace; comments: Sb3CommentMap } {
   const context = createContext()
 
   // 创建函数定义积木
@@ -407,7 +445,20 @@ export function serializeFunction(func: CompiledFunction): Sb3Workspace {
     }
   }
 
-  return context.workspace
+  // 构建注释映射
+  const comments: Sb3CommentMap = {}
+  let commentIndex = 0
+  for (const [blockId, text] of context.commentMap) {
+    comments[`comment_${commentIndex}`] = {
+      blockId,
+      x: 0,
+      y: commentIndex * 40,
+      text
+    }
+    commentIndex++
+  }
+
+  return { blocks: context.workspace, comments }
 }
 
 /**

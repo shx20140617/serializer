@@ -32,6 +32,15 @@ export type Sb3Field = [string, string | null] // [value, id]
 
 export type Sb3Workspace = Record<string, Sb3Block>
 
+export interface Sb3Comment {
+  blockId: string | null // block ID this comment is attached to, or null for standalone
+  x: number
+  y: number
+  text: string
+}
+
+export type Sb3CommentMap = Record<string, Sb3Comment>
+
 export interface Sb3Target {
   isStage: boolean
   name: string

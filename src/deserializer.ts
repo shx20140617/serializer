@@ -9,7 +9,7 @@ import type {
 } from '@scratch-fuse/compiler'
 import type { Parameter, FunctionDeclaration } from '@scratch-fuse/core'
 import { parseProccodeArgumentTypes } from '@scratch-fuse/utility'
-import { Sb3Workspace, Sb3Block, Sb3Input } from './base'
+import { Sb3Workspace, Sb3Block, Sb3Input, Sb3CommentMap } from './base'
 
 /**
  * 反序列化上下文，用于跟踪已处理的积木
@@ -35,7 +35,8 @@ function createContext(workspace: Sb3Workspace): DeserializationContext {
 function deserializeInput(
   key: string,
   input: Sb3Input,
-  context: DeserializationContext
+  context: DeserializationContext,
+  comments?: Sb3CommentMap
 ): BooleanInput | AnyInput | SubstackInput | null {
   if (Array.isArray(input)) {
     const [type, ...rest] = input
@@ -97,7 +98,7 @@ function deserializeInput(
 
       if (isSubstack) {
         // substack
-        const blocks = deserializeBlockChain(blockId, context)
+        const blocks = deserializeBlockChain(blockId, context, comments)
         return { type: 'substack', value: blocks }
       } else {
         // boolean reporter
@@ -174,7 +175,8 @@ function deserializeReporter(
  */
 function deserializeBlock(
   blockId: string,
-  context: DeserializationContext
+  context: DeserializationContext,
+  comments?: Sb3CommentMap
 ): Block {
   const sb3Block = context.workspace[blockId]
   if (!sb3Block) {
@@ -191,7 +193,7 @@ function deserializeBlock(
 
   // 处理 inputs
   for (const [key, value] of Object.entries(sb3Block.inputs)) {
-    const result = deserializeInput(key, value, context)
+    const result = deserializeInput(key, value, context, comments)
     if (result) block.inputs[key] = result
   }
 
@@ -205,6 +207,16 @@ function deserializeBlock(
     block.mutation = sb3Block.mutation
   }
 
+  // 附加注释
+  if (comments) {
+    for (const comment of Object.values(comments)) {
+      if (comment.blockId === blockId) {
+        block.comment = comment.text
+        break
+      }
+    }
+  }
+
   return block
 }
 
@@ -213,7 +225,8 @@ function deserializeBlock(
  */
 function deserializeBlockChain(
   startBlockId: string,
-  context: DeserializationContext
+  context: DeserializationContext,
+  comments?: Sb3CommentMap
 ): Block[] {
   const blocks: Block[] = []
   let currentId: string | null = startBlockId
@@ -228,7 +241,7 @@ function deserializeBlockChain(
       throw new Error(`Block not found: ${currentId}`)
     }
 
-    const block = deserializeBlock(currentId, context)
+    const block = deserializeBlock(currentId, context, comments)
     blocks.push(block)
 
     currentId = sb3Block.next
@@ -242,7 +255,8 @@ function deserializeBlockChain(
  */
 function deserializeHat(
   blockId: string,
-  context: DeserializationContext
+  context: DeserializationContext,
+  comments?: Sb3CommentMap
 ): Block {
   const sb3Block = context.workspace[blockId]
   if (!sb3Block) {
@@ -259,7 +273,7 @@ function deserializeHat(
 
   // 处理 inputs
   for (const [key, value] of Object.entries(sb3Block.inputs)) {
-    const result = deserializeInput(key, value, context)
+    const result = deserializeInput(key, value, context, comments)
     if (result) hat.inputs[key] = result
   }
 
@@ -271,6 +285,16 @@ function deserializeHat(
   // 处理 mutation
   if (sb3Block.mutation) {
     hat.mutation = sb3Block.mutation
+  }
+
+  // 附加注释
+  if (comments) {
+    for (const comment of Object.values(comments)) {
+      if (comment.blockId === blockId) {
+        hat.comment = comment.text
+        break
+      }
+    }
   }
 
   return hat
@@ -299,7 +323,7 @@ export function deserializeBlocks(workspace: Sb3Workspace): Block[] {
 /**
  * 从 Sb3Workspace 反序列化为 Script
  */
-export function deserializeScript(workspace: Sb3Workspace): Script {
+export function deserializeScript(workspace: Sb3Workspace, comments?: Sb3CommentMap): Script {
   const context = createContext(workspace)
 
   // 找到顶层积木
@@ -318,12 +342,12 @@ export function deserializeScript(workspace: Sb3Workspace): Script {
 
   if (isHatBlock) {
     // 有帽子积木
-    const hat = deserializeHat(topLevelId, context)
+    const hat = deserializeHat(topLevelId, context, comments)
     const nextId = topLevelBlock.next
 
     if (nextId) {
       // 有后续积木
-      const blocks = deserializeBlockChain(nextId, context)
+      const blocks = deserializeBlockChain(nextId, context, comments)
       return { hat, blocks }
     } else {
       // 只有帽子积木
@@ -331,7 +355,7 @@ export function deserializeScript(workspace: Sb3Workspace): Script {
     }
   } else {
     // 没有帽子积木，直接是普通积木
-    const blocks = deserializeBlockChain(topLevelId, context)
+    const blocks = deserializeBlockChain(topLevelId, context, comments)
     return { blocks }
   }
 }
@@ -340,7 +364,8 @@ export function deserializeScript(workspace: Sb3Workspace): Script {
  * 从 Sb3Workspace 反序列化为 CompiledFunction
  */
 export function deserializeFunction(
-  workspace: Sb3Workspace
+  workspace: Sb3Workspace,
+  comments?: Sb3CommentMap
 ): CompiledFunctionWithDefault {
   const context = createContext(workspace)
 
@@ -405,7 +430,7 @@ export function deserializeFunction(
 
   // 反序列化函数体
   const nextId = definitionBlock.next
-  const impl = nextId ? deserializeBlockChain(nextId, context) : []
+  const impl = nextId ? deserializeBlockChain(nextId, context, comments) : []
 
   return {
     decl,
@@ -418,7 +443,7 @@ export function deserializeFunction(
 /**
  * 从 Sb3Workspace 反序列化所有顶层脚本
  */
-export function deserializeAllScripts(workspace: Sb3Workspace): Script[] {
+export function deserializeAllScripts(workspace: Sb3Workspace, comments?: Sb3CommentMap): Script[] {
   const context = createContext(workspace)
 
   // 找到所有顶层积木
@@ -444,9 +469,9 @@ export function deserializeAllScripts(workspace: Sb3Workspace): Script[] {
     // const isHatBlock = topLevelBlock.opcode.startsWith('event_')
 
     // if (isHatBlock) {
-    const hat = deserializeHat(topLevelId, context)
+    const hat = deserializeHat(topLevelId, context, comments)
     const nextId = topLevelBlock.next
-    const blocks = nextId ? deserializeBlockChain(nextId, context) : []
+    const blocks = nextId ? deserializeBlockChain(nextId, context, comments) : []
     scripts.push({ hat, blocks })
     // } else {
     //   const blocks = deserializeBlockChain(topLevelId, context)
@@ -461,7 +486,8 @@ export function deserializeAllScripts(workspace: Sb3Workspace): Script[] {
  * 从 Sb3Workspace 反序列化所有函数
  */
 export function deserializeAllFunctions(
-  workspace: Sb3Workspace
+  workspace: Sb3Workspace,
+  comments?: Sb3CommentMap
 ): CompiledFunctionWithDefault[] {
   const functions: CompiledFunctionWithDefault[] = []
 
@@ -503,7 +529,17 @@ export function deserializeAllFunctions(
 
     collectFunctionBlocks(definitionId)
 
-    const func = deserializeFunction(functionWorkspace)
+    // 过滤出属于此函数的注释
+    const functionComments: Sb3CommentMap = {}
+    if (comments) {
+      for (const [commentId, comment] of Object.entries(comments)) {
+        if (comment.blockId && functionWorkspace[comment.blockId]) {
+          functionComments[commentId] = comment
+        }
+      }
+    }
+
+    const func = deserializeFunction(functionWorkspace, functionComments)
     functions.push(func)
   }
 
