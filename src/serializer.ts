@@ -71,7 +71,7 @@ function serializeReporter(
   // 处理 fields
   for (const [key, value] of Object.entries(reporter.fields)) {
     if ((key === 'VARIABLE' || key === 'LIST') && context.variableIdMap.has(value)) {
-      sb3Block.fields[key] = [context.variableIdMap.get(value)!, value] as Sb3Field
+      sb3Block.fields[key] = [value, context.variableIdMap.get(value)!] as Sb3Field
     } else {
       sb3Block.fields[key] = [value, null] as Sb3Field
     }
@@ -175,9 +175,9 @@ function serializeBlock(
 
   // 处理 fields
   for (const [key, value] of Object.entries(block.fields)) {
-    // VARIABLE 和 LIST 字段需要用 Scratch ID 而不是变量名
+    // VARIABLE 和 LIST 字段格式: [名称, ID]
     if ((key === 'VARIABLE' || key === 'LIST') && context.variableIdMap.has(value)) {
-      sb3Block.fields[key] = [context.variableIdMap.get(value)!, value] as Sb3Field
+      sb3Block.fields[key] = [value, context.variableIdMap.get(value)!] as Sb3Field
     } else {
       sb3Block.fields[key] = [value, ''] as Sb3Field
     }
