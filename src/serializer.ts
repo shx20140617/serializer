@@ -88,9 +88,9 @@ function serializeInput(
   parentId?: string
 ): Sb3Input | null {
   if (input.type === 'any') {
-    if (typeof input.value === 'string') {
-      // 字符串字面量
-      return [1, [10, input.value]]
+    if (typeof input.value === 'string' || typeof input.value === 'number' || typeof input.value === 'boolean') {
+      // 字面量
+      return [1, [10, String(input.value)]]
     } else {
       // Reporter 积木
       const [reporterId] = serializeReporter(input.value, context, parentId)
