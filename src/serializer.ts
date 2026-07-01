@@ -18,16 +18,18 @@ interface SerializationContext {
   workspace: Sb3Workspace
   reporterCache: Map<string, string> // Reporter 内容哈希 -> 积木 ID
   commentMap: Map<string, string> // blockId -> comment text
+  variableIdMap: Map<string, string> // variable/list name -> Scratch ID
 }
 
 /**
  * 创建序列化上下文
  */
-function createContext(): SerializationContext {
+function createContext(variableIdMap?: Map<string, string>): SerializationContext {
   return {
     workspace: {},
     reporterCache: new Map(),
-    commentMap: new Map()
+    commentMap: new Map(),
+    variableIdMap: variableIdMap ?? new Map()
   }
 }
 
@@ -68,7 +70,11 @@ function serializeReporter(
 
   // 处理 fields
   for (const [key, value] of Object.entries(reporter.fields)) {
-    sb3Block.fields[key] = [value, null] as Sb3Field
+    if ((key === 'VARIABLE' || key === 'LIST') && context.variableIdMap.has(value)) {
+      sb3Block.fields[key] = [context.variableIdMap.get(value)!, value] as Sb3Field
+    } else {
+      sb3Block.fields[key] = [value, null] as Sb3Field
+    }
   }
 
   // 处理 mutation
@@ -169,7 +175,12 @@ function serializeBlock(
 
   // 处理 fields
   for (const [key, value] of Object.entries(block.fields)) {
-    sb3Block.fields[key] = [value, ''] as Sb3Field
+    // VARIABLE 和 LIST 字段需要用 Scratch ID 而不是变量名
+    if ((key === 'VARIABLE' || key === 'LIST') && context.variableIdMap.has(value)) {
+      sb3Block.fields[key] = [context.variableIdMap.get(value)!, value] as Sb3Field
+    } else {
+      sb3Block.fields[key] = [value, ''] as Sb3Field
+    }
   }
 
   // 处理 mutation
@@ -185,12 +196,12 @@ function serializeBlock(
   return sb3Block
 }
 
-export function serializeBlocks(blocks: Block[]): { blocks: Sb3Workspace; comments: Sb3CommentMap } {
+export function serializeBlocks(blocks: Block[], variableIdMap?: Map<string, string>): { blocks: Sb3Workspace; comments: Sb3CommentMap } {
   if (blocks.length === 0) {
     return { blocks: {}, comments: {} }
   }
 
-  const context = createContext()
+  const context = createContext(variableIdMap)
   const blockIds: string[] = []
 
   // 序列化所有积木
@@ -230,8 +241,8 @@ export function serializeBlocks(blocks: Block[]): { blocks: Sb3Workspace; commen
   return { blocks: context.workspace, comments }
 }
 
-export function serializeScript(script: Script): { blocks: Sb3Workspace; comments: Sb3CommentMap } {
-  const context = createContext()
+export function serializeScript(script: Script, variableIdMap?: Map<string, string>): { blocks: Sb3Workspace; comments: Sb3CommentMap } {
+  const context = createContext(variableIdMap)
   let topLevelId: string | null = null
 
   // 处理帽子积木
@@ -332,8 +343,8 @@ export function serializeScript(script: Script): { blocks: Sb3Workspace; comment
   return { blocks: context.workspace, comments }
 }
 
-export function serializeFunction(func: CompiledFunction): { blocks: Sb3Workspace; comments: Sb3CommentMap } {
-  const context = createContext()
+export function serializeFunction(func: CompiledFunction, variableIdMap?: Map<string, string>): { blocks: Sb3Workspace; comments: Sb3CommentMap } {
+  const context = createContext(variableIdMap)
 
   // 创建函数定义积木
   const definitionId = uid()
