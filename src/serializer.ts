@@ -88,13 +88,23 @@ function serializeInput(
   parentId?: string
 ): Sb3Input | null {
   if (input.type === 'any') {
-    if (typeof input.value === 'string' || typeof input.value === 'number' || typeof input.value === 'boolean') {
-      // 字面量
+    if (typeof input.value === 'number') {
+      return [1, [4, String(input.value)]]
+    } else if (typeof input.value === 'string' || typeof input.value === 'boolean') {
       return [1, [10, String(input.value)]]
     } else {
       // Reporter 积木
       const [reporterId] = serializeReporter(input.value, context, parentId)
-      return [3, reporterId, [10, '']]
+      const opcode = (input.value as any).opcode || ''
+      const isNumeric = opcode.startsWith('operator_') ||
+        opcode === 'data_lengthoflist' ||
+        opcode === 'data_itemoflist' ||
+        opcode === 'sensing_answer' ||
+        opcode === 'sensing_loudness' ||
+        opcode === 'sensing_timer' ||
+        opcode === 'sensing_dayssince2000' ||
+        opcode === 'pen_penAttribute'
+      return [3, reporterId, isNumeric ? [4, ''] : [10, '']]
     }
   } else if (input.type === 'bool') {
     // input.value 是一个 Reporter
