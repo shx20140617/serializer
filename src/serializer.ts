@@ -177,9 +177,9 @@ function serializeBlock(
     sb3Block.mutation = block.mutation
   }
 
-  // 记录积木注释
+  // 记录积木注释（去掉 // 前缀，Scratch 注释不需要）
   if (block.comment && blockId) {
-    context.commentMap.set(blockId, block.comment)
+    context.commentMap.set(blockId, block.comment.replace(/^\/\/\s?/, ''))
   }
 
   return sb3Block
@@ -219,6 +219,9 @@ export function serializeBlocks(blocks: Block[]): { blocks: Sb3Workspace; commen
       blockId,
       x: 0,
       y: commentIndex * 40,
+      width: 200,
+      height: 200,
+      minimized: false,
       text
     }
     commentIndex++
@@ -265,9 +268,9 @@ export function serializeScript(script: Script): { blocks: Sb3Workspace; comment
     context.workspace[hatId] = hatBlock
     topLevelId = hatId
 
-    // 记录帽子积木注释
+    // 记录帽子积木注释（去掉 // 前缀）
     if (script.hat.comment) {
-      context.commentMap.set(hatId, script.hat.comment)
+      context.commentMap.set(hatId, script.hat.comment.replace(/^\/\/\s?/, ''))
     }
   }
 
@@ -318,6 +321,9 @@ export function serializeScript(script: Script): { blocks: Sb3Workspace; comment
       blockId,
       x: 0,
       y: commentIndex * 40,
+      width: 200,
+      height: 200,
+      minimized: false,
       text
     }
     commentIndex++
@@ -453,6 +459,9 @@ export function serializeFunction(func: CompiledFunction): { blocks: Sb3Workspac
       blockId,
       x: 0,
       y: commentIndex * 40,
+      width: 200,
+      height: 200,
+      minimized: false,
       text
     }
     commentIndex++

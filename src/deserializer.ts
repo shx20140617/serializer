@@ -207,11 +207,12 @@ function deserializeBlock(
     block.mutation = sb3Block.mutation
   }
 
-  // 附加注释
+  // 附加注释（加回 // 前缀以匹配 FUSE 语法）
   if (comments) {
     for (const comment of Object.values(comments)) {
       if (comment.blockId === blockId) {
-        block.comment = comment.text
+        const text = comment.text.startsWith('//') ? comment.text : `// ${comment.text}`
+        block.comment = text
         break
       }
     }

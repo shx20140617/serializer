@@ -33,9 +33,12 @@ export type Sb3Field = [string, string | null] // [value, id]
 export type Sb3Workspace = Record<string, Sb3Block>
 
 export interface Sb3Comment {
-  blockId: string | null // block ID this comment is attached to, or null for standalone
+  blockId: string | null
   x: number
   y: number
+  width: number
+  height: number
+  minimized: boolean
   text: string
 }
 
